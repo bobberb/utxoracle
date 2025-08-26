@@ -37,6 +37,8 @@
           # Don't unpack since it's a single file
           dontUnpack = true;
           dontBuild = true;
+          dontConfigure = true;
+          dontPatch = true;
 
           installPhase = ''
             mkdir -p $out/bin
