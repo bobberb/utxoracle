@@ -14,9 +14,12 @@
           config.allowUnfree = true;
         };
         
-        # Python environment with required packages
+        # Python environment with required packages for UTXOracle
         pythonEnv = pkgs.python3.withPackages (ps: with ps; [
-          # Core dependencies that UTXOracle uses
+          # Add any specific Python packages UTXOracle might need
+          # requests  # if it needs HTTP requests
+          # json is built-in
+          # datetime is built-in
         ]);
 
         # UTXOracle package
@@ -24,27 +27,23 @@
           pname = "utxoracle";
           version = "9.0";
 
-          src = ./.;
+          src = pkgs.fetchurl {
+            url = "https://utxo.live/oracle/UTXOracle.py";
+            sha256 = "9b6d33f9c944dcbe2857847d340a984a0ee9f39a91f5cc2ef17383926a6a02c5";
+          };
 
           buildInputs = [ pythonEnv ];
 
-          # No build phase needed - it's a Python script
+          # Don't unpack since it's a single file
+          dontUnpack = true;
           dontBuild = true;
 
           installPhase = ''
             mkdir -p $out/bin
             mkdir -p $out/share/utxoracle
             
-            # Copy the main script (handle both possible locations)
-            if [ -f UTXOracle.py ]; then
-              cp UTXOracle.py $out/share/utxoracle/
-            elif [ -f ./UTXOracle.py ]; then
-              cp ./UTXOracle.py $out/share/utxoracle/
-            else
-              echo "Error: UTXOracle.py not found"
-              find . -name "UTXOracle.py" -type f
-              exit 1
-            fi
+            # Copy the downloaded Python file
+            cp $src $out/share/utxoracle/UTXOracle.py
             
             # Create wrapper script
             cat > $out/bin/utxoracle << EOF
@@ -62,13 +61,12 @@ EOF
               without internet connectivity. Every individual running this code independently
               will produce identical price estimates.
             '';
-            homepage = "https://github.com/your-repo/utxoracle"; # Update with actual repo
-            # Custom license - allows free use for consensus-compatible analysis
+            homepage = "https://utxo.live/oracle/";
             license = {
               spdxId = null;
               fullName = "UTXOracle Custom License v1.0";
-              free = true; # Free for consensus-compatible use
-              url = "https://github.com/your-repo/utxoracle/blob/main/LICENSE";
+              free = true;
+              url = "https://utxo.live/oracle/";
             };
             maintainers = [ ];
             platforms = platforms.unix;
@@ -79,7 +77,6 @@ EOF
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
             pythonEnv
-            bitcoin
             # Development tools
             python3Packages.black
             python3Packages.flake8
@@ -91,16 +88,18 @@ EOF
             echo "================================"
             echo ""
             echo "Available commands:"
-            echo "  python3 UTXOracle.py          - Run UTXOracle with default settings"
-            echo "  python3 UTXOracle.py -h       - Show help"
-            echo "  python3 UTXOracle.py -d YYYY/MM/DD - Analyze specific date"
-            echo "  python3 UTXOracle.py -rb      - Use recent 144 blocks"
+            echo "  utxoracle                     - Run UTXOracle with default settings"
+            echo "  utxoracle -h                  - Show help"
+            echo "  utxoracle -d YYYY/MM/DD       - Analyze specific date"
+            echo "  utxoracle -rb                 - Use recent 144 blocks"
             echo ""
             echo "Requirements:"
             echo "  - Bitcoin Core node running with server=1 in bitcoin.conf"
             echo "  - bitcoin-cli accessible in PATH"
             echo ""
             echo "Bitcoin version: $(bitcoin-cli --version 2>/dev/null | head -n1 || echo 'Not found - install Bitcoin Core')"
+            echo ""
+            echo "UTXOracle source: https://utxo.live/oracle/UTXOracle.py"
             echo ""
           '';
         };
